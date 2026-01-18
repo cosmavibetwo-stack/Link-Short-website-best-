@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickLink - URL Shortener</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        input[type="url"] {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            outline: none;
+        }
+
+        input[type="url"]:focus {
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .short-url {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 15px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .copy-btn {
+            background: #28a745;
+            padding: 10px 20px;
+            font-size: 14px;
+            width: auto;
+            display: inline-block;
+        }
+
+        .copy-btn:hover {
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .stats {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .stats h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .link-list {
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+        }
+
+        .link-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            font-size: 12px;
+        }
+
+        .link-item strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .error {
+            color: #dc3545;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .success {
+            color: #28a745;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .subtitle {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QuickLink</h1>
+        <p class="subtitle">Shorten your URLs instantly</p>
+        
+        <div class="input-group">
+            <input type="url" id="longUrl" placeholder="Enter your long URL here..." required>
+        </div>
+        
+        <button class="btn" id="shortenBtn">Shorten Link</button>
+        
+        <div id="error" class="error"></div>
+        <div id="success" class="success"></div>
+        
+        <div id="result" class="result">
+            <div class="short-url" id="shortUrl"></div>
+            <button class="btn copy-btn" id="copyBtn">Copy to Clipboard</button>
+        </div>
+        
+        <div class="stats">
+            <h3>Recent Links</h3>
+            <div id="linkList" class="link-list"></div>
+        </div>
+    </div>
+
+    <script>
+        class LinkShortener {
+            constructor() {
+                this.baseUrl = window.location.origin + window.location.pathname;
+                this.links = this.loadLinks();
+                this.initializeElements();
+                this.bindEvents();
+                this.displayLinks();
+            }
+
+            initializeElements() {
+                this.longUrlInput = document.getElementById('longUrl');
+                this.shortenBtn = document.getElementById('shortenBtn');
+                this.resultDiv = document.getElementById('result');
+                this.shortUrlDiv = document.getElementById('shortUrl');
+                this.copyBtn = document.getElementById('copyBtn');
+                this.errorDiv = document.getElementById('error');
+                this.successDiv = document.getElementById('success');
+                this.linkList = document.getElementById('linkList');
+            }
+
+            bindEvents() {
+                this.shortenBtn.addEventListener('click', () => this.shortenUrl());
+                this.copyBtn.addEventListener('click', () => this.copyToClipboard());
+                
+                this.longUrlInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.shortenUrl();
+                    }
+                });
+            }
+
+            generateShortCode() {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let result = '';
+                for (let i = 0; i < 6; i++) {
+                    result += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return result;
+            }
+
+            validateUrl(url) {
+                try {
+                    new URL(url);
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+
+            showError(message) {
+                this.errorDiv.textContent = message;
+                this.successDiv.textContent = '';
+                setTimeout(() => {
+                    this.errorDiv.textContent = '';
+                }, 3000);
+            }
+
+            showSuccess(message) {
+                this.successDiv.textContent = message;
+                this.errorDiv.textContent = '';
+                setTimeout(() => {
+                    this.successDiv.textContent = '';
+                }, 3000);
+            }
+
+            shortenUrl() {
+                const longUrl = this.longUrlInput.value.trim();
+                
+                if (!longUrl) {
+                    this.showError('Please enter a URL');
+                    return;
+                }
+
+                if (!this.validateUrl(longUrl)) {
+                    this.showError('Please enter a valid URL');
+                    return;
+                }
+
+                // Generate short code
+                const shortCode = this.generateShortCode();
+                const shortUrl = `${this.baseUrl}#${shortCode}`;
+
+                // Save to localStorage
+                const linkData = {
+                    id: Date.now(),
+                    longUrl: longUrl,
+                    shortCode: shortCode,
+                    shortUrl: shortUrl,
+                    createdAt: new Date().toISOString()
+                };
+
+                this.links.unshift(linkData);
+                this.saveLinks();
+                
+                // Display result
+                this.shortUrlDiv.textContent = shortUrl;
+                this.resultDiv.classList.add('show');
+                
+                // Clear input
+                this.longUrlInput.value = '';
+                
+                // Update recent links
+                this.displayLinks();
+                
+                // Show success message
+                this.showSuccess('Link shortened successfully!');
+
+                // Adsterra direct link integration (simulated)
+                this.handleAdsterraClick();
+            }
+
+            handleAdsterraClick() {
+                // Simulate Adsterra direct link functionality
+                // In a real implementation, you would integrate with Adsterra's API
+                console.log('Adsterra direct link triggered');
+                
+                // You can add your Adsterra direct link code here
+                // Example: window.open('YOUR_ADSTERRA_DIRECT_LINK', '_blank');
+            }
+
+            copyToClipboard() {
+                const shortUrl = this.shortUrlDiv.textContent;
+                
+                navigator.clipboard.writeText(shortUrl).then(() => {
+                    this.showSuccess('Link copied to clipboard!');
+                    this.copyBtn.textContent = 'Copied!';
+                    this.copyBtn.style.background = '#28a745';
+                    
+                    setTimeout(() => {
+                        this.copyBtn.textContent = 'Copy to Clipboard';
+                        this.copyBtn.style.background = '#28a745';
+                    }, 2000);
+                }).catch(() => {
+                    this.showError('Failed to copy link');
+                });
+            }
+
+            loadLinks() {
+                const stored = localStorage.getItem('quicklink_urls');
+                return stored ? JSON.parse(stored) : [];
+            }
+
+            saveLinks() {
+                // Keep only last 10 links
+                this.links = this.links.slice(0, 10);
+                localStorage.setItem('quicklink_urls', JSON.stringify(this.links));
+            }
+
+            displayLinks() {
+                if (this.links.length === 0) {
+                    this.linkList.innerHTML = '<p style="text-align: center; color: #666;">No recent links</p>';
+                    return;
+                }
+
+                this.linkList.innerHTML = this.links.map(link => `
+                    <div class="link-item">
+                        <strong>Short:</strong> ${link.shortUrl}
+                        <br><strong>Original:</strong> ${link.longUrl.substring(0, 50)}${link.longUrl.length > 50 ? '...' : ''}
+                    </div>
+                `).join('');
+            }
+
+            // Handle hash change for redirecting short URLs
+            handleRedirect() {
+                const hash = window.location.hash.substring(1);
+                if (hash) {
+                    const link = this.links.find(l => l.shortCode === hash);
+                    if (link) {
+                        window.location.href = link.longUrl;
+                    } else {
+                        document.body.innerHTML = '<div style="text-align: center; padding: 50px;"><h1>Link Not Found</h1><p>The short URL you requested does not exist.</p></div>';
+                    }
+                }
+            }
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = new LinkShortener();
+            app.handleRedirect();
+        });
+    </script>
+</body>
+</html>
